@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build TinyWebServer",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-std=c++11",
+                "-O2",
+                "-g",
+                "${workspaceFolder}/*.cpp",
+                "-o",
+                "${workspaceFolder}/server",
+                "-lpthread",
+                "-lmysqlclient"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
