@@ -2,8 +2,29 @@
 
 //新增
 #include<unistd.h> // 用于alarm()
+#include<cstring> //用于strcat
 //初始化静态成员
 WebServer* WebServer::instance = nullptr;
+
+//辅助函数：将epoll事件转换为字符串
+const char* events_to_str(uint32_t ev){
+    static char buf[64];
+    buf[0] = '\0';
+    if (ev & EPOLLIN) strcat(buf, "IN ");
+    if (ev & EPOLLOUT) strcat(buf, "OUT ");
+    if (ev & EPOLLERR) strcat(buf, "ERR ");
+    if (ev & EPOLLHUP) strcat(buf, "HUP ");
+    if (ev & EPOLLET) strcat(buf, "ET ");
+    return buf;
+}
+//时间戳工具
+const char* get_timestamp(){
+    static char buf[32];
+    time_t now = time(nullptr);
+    struct tm* t = localtime(&now);
+    strftime(buf, sizeof(buf), "%H:%M:%S", t);
+    return buf;
+}
 
 WebServer::WebServer()
 {
@@ -405,6 +426,19 @@ void WebServer::eventLoop()
         for (int i = 0; i < number; i++)
         {
             int sockfd = events[i].data.fd;
+
+            //新增加MC
+            uint32_t ev = events[i].events;
+            //epoll事件日志
+            if (sockfd == m_listenfd){
+                //监听socket有新连接
+                printf("[%s] [EPOLL] LISTEN fd=%d events=%s (new connection)\n",
+               get_timestamp(), sockfd, events_to_str(ev));
+            }else{
+                // 客户端socket事件
+                printf("[%s] [EPOLL] CLIENT fd=%d events=%s\n",
+                    get_timestamp(), sockfd, events_to_str(ev));
+            }
 
             //处理新到的客户连接
             if (sockfd == m_listenfd)
