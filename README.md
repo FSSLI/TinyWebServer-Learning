@@ -1,246 +1,118 @@
+# TinyWebServer-Learning 🚀
 
+基于 Linux 的 C++11 高并发 HTTP 服务器学习项目
 
-TinyWebServer
-===============
-Linux下C++轻量级Web服务器，助力初学者快速实践网络编程，搭建属于自己的服务器.
+## 📋 项目简介
 
-* 使用 **线程池 + 非阻塞socket + epoll(ET和LT均实现) + 事件处理(Reactor和Proactor均实现)** 的并发模型
-* 使用**状态机**解析HTTP请求报文，支持解析**GET和POST**请求
-* 访问服务器数据库实现web端用户**注册、登录**功能，可以请求服务器**图片和视频文件**
-* 实现**同步/异步日志系统**，记录服务器运行状态
-* 经Webbench压力测试可以实现**上万的并发连接**数据交换
+实现了一个支持高并发的 HTTP/1.1 Web 服务器，核心特性包括：
 
-目录
------
+- ✅ **HTTP协议**：支持 GET/POST 请求，静态资源访问
+- ✅ **高并发模型**：Reactor + 线程池 + epoll (ET模式)
+- ✅ **线程池监控**：每5秒打印队列长度和线程数（验证调优）
+- ✅ **epoll事件日志**：实时打印事件，验证ET模式行为
+- ✅ **性能验证**：wrk压测验证线程数=16最优（11547 QPS）
 
-| [概述](#概述) | [框架](#框架) | [Demo演示](#Demo演示) | [压力测试](#压力测试) |[更新日志](#更新日志) |[源码下载](#源码下载) | [快速运行](#快速运行) | [个性化运行](#个性化运行) | [庖丁解牛](#庖丁解牛) | [致谢](#致谢) |
-|:--------:|:--------:|:--------:|:--------:|:--------:|:--------:|:--------:|:--------:|:--------:|:--------:|
+## 🏗️ 架构图
+┌─────────────────────────────────────────┐
+│           主线程 (Main Thread)           │
+│  ┌─────────┐    ┌─────────────────────┐ │
+│  │ Listen  │───→│   epoll_wait()      │ │
+│  │ Socket  │    │   (ET模式)           │ │
+│  └─────────┘    └─────────────────────┘ │
+│                          ↓              │
+│                   ┌─────────────┐        │
+│                   │ 新连接/可读  │        │
+│                   └─────────────┘        │
+└─────────────────────────────────────────┘
+↓
+┌─────────────────────────────────────────┐
+│         线程池 (Thread Pool)            │
+│  ┌────────┐ ┌────────┐ ┌────────┐      │
+│  │ Worker │ │ Worker │ │ Worker │ ...  │
+│  │ Thread │ │ Thread │ │ Thread │      │
+│  └────────┘ └────────┘ └────────┘      │
+│       ↓          ↓          ↓           │
+│  HTTP解析 → 业务处理 → 生成响应          │
+└─────────────────────────────────────────┘
+plain
+复制
 
+## 🛠️ 技术栈
 
-概述
-----------
+| 模块 | 技术 | 说明 |
+|------|------|------|
+| 语言标准 | C++11 | 智能指针、lambda、auto |
+| 并发模型 | 线程池 | 固定线程数（实验验证16线程最优） |
+| IO多路复用 | epoll | ET模式 + EPOLLONESHOT |
+| 同步机制 | sem信号量 | 精准唤醒，避免虚假唤醒 |
+| 构建工具 | Makefile | 一键编译 |
 
-> * C/C++
-> * B/S模型
-> * [线程同步机制包装类](https://github.com/qinguoyi/TinyWebServer/tree/master/lock)
-> * [http连接请求处理类](https://github.com/qinguoyi/TinyWebServer/tree/master/http)
-> * [半同步/半反应堆线程池](https://github.com/qinguoyi/TinyWebServer/tree/master/threadpool)
-> * [定时器处理非活动连接](https://github.com/qinguoyi/TinyWebServer/tree/master/timer)
-> * [同步/异步日志系统 ](https://github.com/qinguoyi/TinyWebServer/tree/master/log)  
-> * [数据库连接池](https://github.com/qinguoyi/TinyWebServer/tree/master/CGImysql) 
-> * [同步线程注册和登录校验](https://github.com/qinguoyi/TinyWebServer/tree/master/CGImysql) 
-> * [简易服务器压力测试](https://github.com/qinguoyi/TinyWebServer/tree/master/test_presure)
+## 🚀 快速开始
 
+```bash
+# 克隆
+git clone https://github.com/FSSLI/TinyWebServer-Learning.git
+cd TinyWebServer-Learning
 
-框架
--------------
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1ge0j1atq5hj30g60lm0w4.jpg" height="765"/> </div>
+# 编译
+make clean && make
 
-Demo演示
-----------
-> * 注册演示
+# 运行（需要root权限绑定端口）
+sudo ./server
 
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1ge0iz0dkleg30m80bxjyj.gif" height="429"/> </div>
-
-> * 登录演示
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1ge0izcc0r1g30m80bxn6a.gif" height="429"/> </div>
-
-> * 请求图片文件演示(6M)
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1ge0juxrnlfg30go07x4qr.gif" height="429"/> </div>
-
-> * 请求视频文件演示(39M)
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1ge0jtxie8ng30go07xb2b.gif" height="429"/> </div>
-
-
-压力测试
--------------
-在关闭日志后，使用Webbench对服务器进行压力测试，对listenfd和connfd分别采用ET和LT模式，均可实现上万的并发连接，下面列出的是两者组合后的测试结果. 
-
-> * Proactor，LT + LT，93251 QPS
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1gfjqu2hptkj30gz07474n.jpg" height="201"/> </div>
-
-> * Proactor，LT + ET，97459 QPS
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1gfjr1xppdgj30h206zdg6.jpg" height="201"/> </div>
-
-> * Proactor，ET + LT，80498 QPS
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1gfjr24vmjtj30gz0720t3.jpg" height="201"/> </div>
-
-> * Proactor，ET + ET，92167 QPS
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1gfjrflrebdj30gz06z0t3.jpg" height="201"/> </div>
-
-> * Reactor，LT + ET，69175 QPS
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1gfjr1humcbj30h207474n.jpg" height="201"/> </div>
-
-> * 并发连接总数：10500
-> * 访问服务器时间：5s
-> * 所有访问均成功
-
-**注意：** 使用本项目的webbench进行压测时，若报错显示webbench命令找不到，将可执行文件webbench删除后，重新编译即可。
-
-更新日志
--------
-- [x] 解决请求服务器上大文件的Bug
-- [x] 增加请求视频文件的页面
-- [x] 解决数据库同步校验内存泄漏
-- [x] 实现非阻塞模式下的ET和LT触发，并完成压力测试
-- [x] 完善`lock.h`中的封装类，统一使用该同步机制
-- [x] 改进代码结构，更新局部变量懒汉单例模式
-- [x] 优化数据库连接池信号量与代码结构
-- [x] 使用RAII机制优化数据库连接的获取与释放
-- [x] 优化代码结构，封装工具类以减少全局变量
-- [x] 编译一次即可，命令行进行个性化测试更加友好
-- [x] main函数封装重构
-- [x] 新增命令行日志开关，关闭日志后更新压力测试结果
-- [x] 改进编译方式，只配置一次SQL信息即可
-- [x] 新增Reactor模式，并完成压力测试
-
-源码下载
--------
-目前有两个版本，版本间的代码结构有较大改动，文档和代码运行方法也不一致。重构版本更简洁，原始版本(raw_version)更大保留游双代码的原汁原味，从原始版本更容易入手.
-
-如果遇到github代码下载失败，或访问太慢，可以从以下链接下载，与Github最新提交同步.
-
-* 重构版本下载地址 : [BaiduYun](https://pan.baidu.com/s/1dFdDR3QDbIXX71C2OJ-x2g)
-    * 提取码 : hr8n
-* 原始版本(raw_version)下载地址 : [BaiduYun](https://pan.baidu.com/s/1-icglZGmz8cYqGCZhsN78A)
-    * 提取码 : 496d
-    * 原始版本运行请参考[原始文档](https://github.com/qinguoyi/TinyWebServer/tree/raw_version)
-
-快速运行
-------------
-* 服务器测试环境
-	* Ubuntu版本16.04
-	* MySQL版本5.7.29
-* 浏览器测试环境
-	* Windows、Linux均可
-	* Chrome
-	* FireFox
-	* 其他浏览器暂无测试
-
-* 测试前确认已安装MySQL数据库
-
-    ```C++
-    // 建立yourdb库
-    create database yourdb;
-
-    // 创建user表
-    USE yourdb;
-    CREATE TABLE user(
-        username char(50) NULL,
-        passwd char(50) NULL
-    )ENGINE=InnoDB;
-
-    // 添加数据
-    INSERT INTO user(username, passwd) VALUES('name', 'passwd');
-    ```
-
-* 修改main.cpp中的数据库初始化信息
-
-    ```C++
-    //数据库登录名,密码,库名
-    string user = "root";
-    string passwd = "root";
-    string databasename = "yourdb";
-    ```
-
-* build
-
-    ```C++
-    sh ./build.sh
-    ```
-
-* 启动server
-
-    ```C++
-    ./server
-    ```
-
-* 浏览器端
-
-    ```C++
-    ip:9006
-    ```
-
-个性化运行
-------
-
-```C++
-./server [-p port] [-l LOGWrite] [-m TRIGMode] [-o OPT_LINGER] [-s sql_num] [-t thread_num] [-c close_log] [-a actor_model]
-```
-
-温馨提示:以上参数不是非必须，不用全部使用，根据个人情况搭配选用即可.
-
-* -p，自定义端口号
-	* 默认9006
-* -l，选择日志写入方式，默认同步写入
-	* 0，同步写入
-	* 1，异步写入
-* -m，listenfd和connfd的模式组合，默认使用LT + LT
-	* 0，表示使用LT + LT
-	* 1，表示使用LT + ET
-    * 2，表示使用ET + LT
-    * 3，表示使用ET + ET
-* -o，优雅关闭连接，默认不使用
-	* 0，不使用
-	* 1，使用
-* -s，数据库连接数量
-	* 默认为8
-* -t，线程数量
-	* 默认为8
-* -c，关闭日志，默认打开
-	* 0，打开日志
-	* 1，关闭日志
-* -a，选择反应堆模型，默认Proactor
-	* 0，Proactor模型
-	* 1，Reactor模型
-
-测试示例命令与含义
-
-```C++
-./server -p 9007 -l 1 -m 0 -o 1 -s 10 -t 10 -c 1 -a 1
-```
-
-- [x] 端口9007
-- [x] 异步写入日志
-- [x] 使用LT + LT组合
-- [x] 使用优雅关闭连接
-- [x] 数据库连接池内有10条连接
-- [x] 线程池内有10条线程
-- [x] 关闭日志
-- [x] Reactor反应堆模型
-
-庖丁解牛
-------------
-近期版本迭代较快，以下内容多以旧版本(raw_version)代码为蓝本进行详解.
-
-* [小白视角：一文读懂社长的TinyWebServer](https://huixxi.github.io/2020/06/02/%E5%B0%8F%E7%99%BD%E8%A7%86%E8%A7%92%EF%BC%9A%E4%B8%80%E6%96%87%E8%AF%BB%E6%87%82%E7%A4%BE%E9%95%BF%E7%9A%84TinyWebServer/#more)
-* [最新版Web服务器项目详解 - 01 线程同步机制封装类](https://mp.weixin.qq.com/s?__biz=MzAxNzU2MzcwMw==&mid=2649274278&idx=3&sn=5840ff698e3f963c7855d702e842ec47&chksm=83ffbefeb48837e86fed9754986bca6db364a6fe2e2923549a378e8e5dec6e3cf732cdb198e2&scene=0&xtrack=1#rd)
-* [最新版Web服务器项目详解 - 02 半同步半反应堆线程池（上）](https://mp.weixin.qq.com/s?__biz=MzAxNzU2MzcwMw==&mid=2649274278&idx=4&sn=caa323faf0c51d882453c0e0c6a62282&chksm=83ffbefeb48837e841a6dbff292217475d9075e91cbe14042ad6e55b87437dcd01e6d9219e7d&scene=0&xtrack=1#rd)
-* [最新版Web服务器项目详解 - 03 半同步半反应堆线程池（下）](https://mp.weixin.qq.com/s/PB8vMwi8sB4Jw3WzAKpWOQ)
-* [最新版Web服务器项目详解 - 04 http连接处理（上）](https://mp.weixin.qq.com/s/BfnNl-3jc_x5WPrWEJGdzQ)
-* [最新版Web服务器项目详解 - 05 http连接处理（中）](https://mp.weixin.qq.com/s/wAQHU-QZiRt1VACMZZjNlw)
-* [最新版Web服务器项目详解 - 06 http连接处理（下）](https://mp.weixin.qq.com/s/451xNaSFHxcxfKlPBV3OCg)
-* [最新版Web服务器项目详解 - 07 定时器处理非活动连接（上）](https://mp.weixin.qq.com/s/mmXLqh_NywhBXJvI45hchA)
-* [最新版Web服务器项目详解 - 08 定时器处理非活动连接（下）](https://mp.weixin.qq.com/s/fb_OUnlV1SGuOUdrGrzVgg)
-* [最新版Web服务器项目详解 - 09 日志系统（上）](https://mp.weixin.qq.com/s/IWAlPzVDkR2ZRI5iirEfCg)
-* [最新版Web服务器项目详解 - 10 日志系统（下）](https://mp.weixin.qq.com/s/f-ujwFyCe1LZa3EB561ehA)
-* [最新版Web服务器项目详解 - 11 数据库连接池](https://mp.weixin.qq.com/s?__biz=MzAxNzU2MzcwMw==&mid=2649274326&idx=1&sn=5af78e2bf6552c46ae9ab2aa22faf839&chksm=83ffbe8eb4883798c3abb82ddd124c8100a39ef41ab8d04abe42d344067d5e1ac1b0cac9d9a3&token=1450918099&lang=zh_CN#rd)
-* [最新版Web服务器项目详解 - 12 注册登录](https://mp.weixin.qq.com/s?__biz=MzAxNzU2MzcwMw==&mid=2649274431&idx=4&sn=7595a70f06a79cb7abaebcd939e0cbee&chksm=83ffb167b4883871ce110aeb23e04acf835ef41016517247263a2c3ab6f8e615607858127ea6&token=1686112912&lang=zh_CN#rd)
-* [最新版Web服务器项目详解 - 13 踩坑与面试题](https://mp.weixin.qq.com/s?__biz=MzAxNzU2MzcwMw==&mid=2649274431&idx=1&sn=2dd28c92f5d9704a57c001a3d2630b69&chksm=83ffb167b48838715810b27b8f8b9a576023ee5c08a8e5d91df5baf396732de51268d1bf2a4e&token=1686112912&lang=zh_CN#rd)
-* 已更新完毕
-
-<div align=center><img src="http://ww1.sinaimg.cn/large/005TJ2c7ly1ge0j3jrepyj30ij0cvjt8.jpg" height="350"/> </div>
-
-致谢
-------------
-Linux高性能服务器编程，游双著.
-
-感谢以下朋友的PR和帮助: [@RownH](https://github.com/RownH)，[@mapleFU](https://github.com/mapleFU)，[@ZWiley](https://github.com/ZWiley)，[@zjuHong](https://github.com/zjuHong)，[@mamil](https://github.com/mamil)，[@byfate](https://github.com/byfate)，[@MaJun827](https://github.com/MaJun827)，[@BBLiu-coder](https://github.com/BBLiu-coder)，[@smoky96](https://github.com/smoky96)，[@yfBong](https://github.com/yfBong)，[@liuwuyao](https://github.com/liuwuyao)，[@Huixxi](https://github.com/Huixxi).
+# 测试
+curl http://localhost:9006/index.html
+✨ 我的改进点
+1. 线程池调优验证（核心亮点）
+实验数据：8核16线程CPU，wrk压测1MB文件
+关键发现：16线程QPS 11547最优，32线程下降至10834
+结论：线程数=逻辑处理器数时最优，过多上下文切换反而下降
+代码：添加线程池监控日志，每5秒输出queue长度和线程数
+bash
+复制
+# 启动后日志输出示例
+[14:30:15] [INFO] WebServer started, threadpool: 16 threads
+[14:30:20] [THREADPOOL] queue=0/10000 threads=16
+[14:30:25] [THREADPOOL] queue=3/10000 threads=16  # 压测时队列堆积
+2. epoll ET模式验证
+实现：epoll事件日志，实时打印EPOLLIN/EPOLLOUT
+验证：ET模式只在状态变化时触发，HTTP长连接IN/OUT交替
+plain
+复制
+[14:30:35] [EPOLL] LISTEN fd=12 events=IN (new connection)
+[14:30:35] [EPOLL] CLIENT fd=16 events=IN   # 读请求
+[14:30:35] [EPOLL] CLIENT fd=16 events=OUT  # 写响应
+[14:30:36] [EPOLL] CLIENT fd=16 events=IN   # Keep-Alive下一个请求
+📊 性能测试
+bash
+复制
+# wrk压测命令
+wrk -t16 -c100 -d10s http://127.0.0.1:9006/1m.bin
+表格
+线程数	QPS	吞吐量	说明
+8	10731	8.00 MB/s	线程不足，CPU未充分利用
+16	11547	8.61 MB/s	最优，匹配逻辑处理器数
+32	10834	8.08 MB/s	上下文切换开销，性能下降
+环境：WSL2，8核16线程，1MB静态文件
+📝 项目结构
+plain
+复制
+TinyWebServer-Learning/
+├── src/              # 源代码
+│   ├── main.cpp      # 程序入口
+│   ├── webserver.cpp # 服务器核心（含监控日志）
+│   └── ...
+├── include/          # 头文件
+│   └── threadpool/   # 线程池实现
+├── docs/             # 文档与截图
+├── resources/        # 静态资源
+└── README.md
+📚 参考资料
+TinyWebServer 原项目
+《Linux高性能服务器编程》- 游双
+🎯 学习记录
+2024.02.23 项目启动，完成基础编译运行
+2024.02.25 线程池深入学习，理解sem信号量 vs condition_variable
+2024.02.28 添加线程池监控与epoll事件日志，验证性能调优
+2024.03.01 整理代码，编写完整文档，GitHub发布
+EOF
